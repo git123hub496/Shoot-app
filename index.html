@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Veins: A Relaxing Game</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="icon.png">
 <style>
   html, body {
     margin: 0;
@@ -13,6 +11,9 @@
     overflow: hidden;
     height: 100%;
     background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     font-family: sans-serif;
     user-select: none;
   }
@@ -85,11 +86,13 @@ let targetColor = {r:0, g:255, b:204};
 const MAX_VEINS = 400;
 const CONNECT_DIST = 50;
 
+// Button center
 function getButtonCenter() {
   const rect = button.getBoundingClientRect();
   return {x: rect.left + rect.width/2, y: rect.top + rect.height/2};
 }
 
+// Color picker
 colorPicker.addEventListener('input', ()=>{
   const hex = colorPicker.value;
   targetColor.r = parseInt(hex.slice(1,3),16);
@@ -97,6 +100,7 @@ colorPicker.addEventListener('input', ()=>{
   targetColor.b = parseInt(hex.slice(5,7),16);
 });
 
+// Vein class
 class Vein {
   constructor(x, y, parent=null) {
     this.x = x;
@@ -112,14 +116,18 @@ class Vein {
     this.x += Math.cos(this.angle) * this.length;
     this.y += Math.sin(this.angle) * this.length;
 
+    // color towards target
     this.color.r += (targetColor.r - this.color.r) * 0.03;
     this.color.g += (targetColor.g - this.color.g) * 0.03;
     this.color.b += (targetColor.b - this.color.b) * 0.03;
 
+    // small chance to branch
     if(veins.length < MAX_VEINS && Math.random() < 0.01){
-      veins.push(new Vein(this.x, this.y, this));
+      const child = new Vein(this.x, this.y, this);
+      veins.push(child);
     }
 
+    // occasional connection to nearest vein
     if(Math.random() < 0.05){
       let nearest = null;
       let minDist = CONNECT_DIST;
@@ -148,17 +156,21 @@ class Vein {
   }
 }
 
+// Animate
 function animate(){
   ctx.fillStyle = "rgba(17,17,17,0.2)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
   for(let v of veins){
     v.update();
     v.draw();
   }
+
   requestAnimationFrame(animate);
 }
 animate();
 
+// Spawn veins from button while holding (works on repeated holds)
 function spawnVeinsLoop(){
   if(holding && veins.length < MAX_VEINS){
     const center = getButtonCenter();
@@ -168,25 +180,29 @@ function spawnVeinsLoop(){
 }
 spawnVeinsLoop();
 
-function startHold(e){ e.preventDefault(); holding = true; }
-function stopHold(e){ e.preventDefault(); holding = false; }
+// Button events (mouse + touch)
+function startHold(e){
+  e.preventDefault();
+  holding = true;
+}
+function stopHold(e){
+  e.preventDefault();
+  holding = false;
+}
 
 button.addEventListener('mousedown', startHold);
 button.addEventListener('mouseup', stopHold);
 button.addEventListener('mouseleave', stopHold);
+
 button.addEventListener('touchstart', startHold);
 button.addEventListener('touchend', stopHold);
 button.addEventListener('touchcancel', stopHold);
 
+// Resize
 window.addEventListener('resize', ()=>{
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 });
-
-// Register service worker for offline support
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').then(()=>console.log('Service Worker Registered'));
-}
 </script>
 </body>
 </html>
