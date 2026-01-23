@@ -47,6 +47,7 @@
     color: white;
     cursor: pointer;
     z-index: 10;
+    touch-action: none;
   }
 
   #holdButton:active {
@@ -169,22 +170,33 @@ function animate(){
 }
 animate();
 
-// Spawn veins from button
-function spawnVein(){
+// Spawn veins from button while holding (works on repeated holds)
+function spawnVeinsLoop(){
   if(holding && veins.length < MAX_VEINS){
     const center = getButtonCenter();
     veins.push(new Vein(center.x, center.y));
   }
-  requestAnimationFrame(spawnVein);
+  requestAnimationFrame(spawnVeinsLoop);
 }
-spawnVein();
+spawnVeinsLoop();
 
-// Button events
-button.addEventListener('mousedown', ()=>holding=true);
-button.addEventListener('mouseup', ()=>holding=false);
-button.addEventListener('mouseleave', ()=>holding=false);
-button.addEventListener('touchstart', (e)=>{e.preventDefault(); holding=true});
-button.addEventListener('touchend', (e)=>{e.preventDefault(); holding=false});
+// Button events (mouse + touch)
+function startHold(e){
+  e.preventDefault();
+  holding = true;
+}
+function stopHold(e){
+  e.preventDefault();
+  holding = false;
+}
+
+button.addEventListener('mousedown', startHold);
+button.addEventListener('mouseup', stopHold);
+button.addEventListener('mouseleave', stopHold);
+
+button.addEventListener('touchstart', startHold);
+button.addEventListener('touchend', stopHold);
+button.addEventListener('touchcancel', stopHold);
 
 // Resize
 window.addEventListener('resize', ()=>{
@@ -194,4 +206,3 @@ window.addEventListener('resize', ()=>{
 </script>
 </body>
 </html>
-
