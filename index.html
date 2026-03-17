@@ -5,35 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SHOOT</title>
     <style>
+        :root {
+            --primary: #ffffff;
+            --bg: #121212;
+        }
         body {
             margin: 0;
-            background-color: #1a1a1a;
+            background-color: var(--bg);
             color: white;
-            font-family: 'Arial', sans-serif;
-            overflow: hidden; /* Prevents scrolling on mobile */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
 
-        #ui {
+        /* UI Elements */
+        #header {
             position: absolute;
-            top: 20px;
+            top: 10px;
             pointer-events: none;
-            text-align: center;
+            z-index: 5;
         }
 
-        canvas {
-            display: block;
-            touch-action: none; /* Required for mobile interaction */
+        #settings-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid white;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            z-index: 10;
         }
+
+        /* Settings Panel */
+        #settings-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 30, 30, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #444;
+            display: none;
+            z-index: 100;
+            min-width: 250px;
+        }
+
+        .setting-item { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        .controls-list {
+            font-size: 0.9em;
+            color: #bbb;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #close-settings {
+            width: 100%;
+            padding: 10px;
+            background: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <h1>SHOOT</h1>
-        <p>Tap for a pulse | Hold for a beam</p>
+    <div id="header"><h1>SHOOT</h1></div>
+    <button id="settings-btn">⚙️ Settings</button>
+
+    <div id="settings-panel">
+        <h2>Settings</h2>
+        
+        <div class="setting-item">
+            <label>Line Color (Hue)</label>
+            <input type="range" id="hue-slider" min="0" max="360" value="0">
+        </div>
+
+        <div class="setting-item">
+            <label>Controls</label>
+            <div class="controls-list">
+                • <b>Tap:</b> Quick shot<br>
+                • <b>Hold:</b> Grow a long beam<br>
+                • <b>Circle:</b> Turns white on press
+            </div>
+        </div>
+
+        <button id="close-settings">Save & Close</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -41,20 +112,22 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const hueSlider = document.getElementById('hue-slider');
+        const settingsPanel = document.getElementById('settings-panel');
+        const settingsBtn = document.getElementById('settings-btn');
+        const closeBtn = document.getElementById('close-settings');
 
-        // State variables
         let width, height;
         let isPressing = false;
         let pressStartTime = 0;
         let projectiles = [];
+        let currentHue = 0;
 
-        // Circle properties
-        const circle = {
-            x: 0,
-            y: 0,
-            radius: 40,
-            color: '#555'
-        };
+        // Settings toggle
+        settingsBtn.onclick = () => settingsPanel.style.display = 'block';
+        closeBtn.onclick = () => settingsPanel.style.display = 'none';
+
+        const circle = { x: 0, y: 0, radius: 45, color: '#333' };
 
         function resize() {
             width = window.innerWidth;
@@ -62,96 +135,89 @@
             canvas.width = width;
             canvas.height = height;
             circle.x = width / 2;
-            circle.y = height / 2;
+            circle.y = height / 2 + 100; // Moved down slightly
         }
 
         window.addEventListener('resize', resize);
         resize();
 
-        // Interaction Handlers
-        function startPress(e) {
+        function startPress() {
+            if (settingsPanel.style.display === 'block') return;
             isPressing = true;
             pressStartTime = Date.now();
-            circle.color = '#ffffff'; // Turns white when pressed
+            circle.color = '#ffffff';
         }
 
-        function endPress(e) {
+        function endPress() {
             if (!isPressing) return;
-            
             const duration = Date.now() - pressStartTime;
-            circle.color = '#555'; // Back to grey
+            circle.color = '#333';
             
-            // Create the "line" (projectile)
-            // If hold is very short, it's a small pulse. 
-            // If hold is long, the line length reflects the duration.
-            const lineLength = Math.min(duration / 2, 300); 
+            const lineLength = Math.min(duration / 1.5, 500); 
             
             projectiles.push({
                 x: circle.x,
-                y: circle.y,
+                y: circle.y - circle.radius,
                 length: lineLength,
-                speed: 12,
-                opacity: 1
+                speed: 15,
+                opacity: 1,
+                hue: hueSlider.value
             });
 
             isPressing = false;
         }
 
-        // Event Listeners for Mouse and Touch
         canvas.addEventListener('mousedown', startPress);
         window.addEventListener('mouseup', endPress);
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(); });
         window.addEventListener('touchend', endPress);
 
         function update() {
-            // Move projectiles upward
             projectiles.forEach((p, index) => {
                 p.y -= p.speed;
-                p.opacity -= 0.01; // Fade out effect
-                
-                if (p.y + p.length < 0 || p.opacity <= 0) {
-                    projectiles.splice(index, 1);
-                }
+                p.opacity -= 0.015;
+                if (p.y + p.length < 0 || p.opacity <= 0) projectiles.splice(index, 1);
             });
         }
 
         function draw() {
-            ctx.fillStyle = '#1a1a1a';
+            ctx.fillStyle = '#121212';
             ctx.fillRect(0, 0, width, height);
 
-            // Draw Projectiles
-            ctx.lineWidth = 4;
+            // Draw Projectiles with selected Hue
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
             projectiles.forEach(p => {
-                ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`;
+                ctx.strokeStyle = `hsla(${p.hue}, 80%, 60%, ${p.opacity})`;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsla(${p.hue}, 80%, 60%, 0.5)`;
                 ctx.beginPath();
                 ctx.moveTo(p.x, p.y);
                 ctx.lineTo(p.x, p.y + p.length);
                 ctx.stroke();
             });
+            ctx.shadowBlur = 0; // Reset shadow for circle
 
             // Draw Circle
             ctx.beginPath();
             ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
             ctx.fillStyle = circle.color;
             ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = `hsl(${hueSlider.value}, 70%, 50%)`;
+            ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Visual feedback while holding
+            // Charging feedback
             if (isPressing) {
-                const currentHold = (Date.now() - pressStartTime) / 2;
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                const currentHold = (Date.now() - pressStartTime) / 1.5;
+                ctx.strokeStyle = 'white';
                 ctx.beginPath();
-                ctx.moveTo(circle.x, circle.y - circle.radius);
-                ctx.lineTo(circle.x, circle.y - circle.radius - Math.min(currentHold, 300));
+                ctx.moveTo(circle.x, circle.y - circle.radius - 10);
+                ctx.lineTo(circle.x, circle.y - circle.radius - 10 - Math.min(currentHold, 500));
                 ctx.stroke();
             }
 
-            requestAnimationFrame(() => {
-                update();
-                draw();
-            });
+            requestAnimationFrame(() => { update(); draw(); });
         }
 
         draw();
